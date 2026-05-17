@@ -22,6 +22,9 @@ class VendorBot(commands.Bot):
         for cog in COGS:
             await self.load_extension(cog)
 
+    async def on_ready(self):
+        print(f"Ready: {self.user}  (ID: {self.user.id})")
+
         # Re-register persistent approval views so buttons survive restarts
         from cogs.vendors import VendorApprovalView
 
@@ -30,16 +33,21 @@ class VendorBot(commands.Bot):
             for vendor in pending:
                 self.add_view(VendorApprovalView(vendor["id"]))
 
-        await self.tree.sync()
+        synced = await self.tree.sync()
+        print(f"Synced {len(synced)} commands")
 
-    async def on_ready(self):
-        print(f"Ready: {self.user}  (ID: {self.user.id})")
         await self.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.watching,
                 name="vendor ratings | /rate /suggest",
             )
         )
+
+    @commands.command(name="sync")
+    @commands.is_owner()
+    async def force_sync(self, ctx):
+        synced = await self.tree.sync()
+        await ctx.send(f"Synced {len(synced)} commands.")
 
     async def update_live_embed(self, guild: discord.Guild):
         """Edit the pinned embed in the configured live channel."""
