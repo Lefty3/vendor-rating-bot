@@ -13,9 +13,7 @@ COGS = ("cogs.ratings", "cogs.vendors", "cogs.admin")
 
 class VendorBot(commands.Bot):
     def __init__(self):
-        intents = discord.Intents.default()
-        intents.members = True
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(command_prefix="!", intents=discord.Intents.default())
         self.db = Database()
 
     async def setup_hook(self):
