@@ -26,11 +26,21 @@ async def _resolve_channel(guild: discord.Guild, value: str) -> discord.TextChan
         if ch is None:
             try:
                 ch = await guild.fetch_channel(int(value))
-            except (discord.NotFound, discord.Forbidden):
+                print(f"[setup] fetched channel via API: {ch} (type={type(ch).__name__})")
+            except discord.Forbidden:
+                print(f"[setup] Forbidden fetching channel {value} — bot lacks View Channel permission")
+                return None
+            except discord.NotFound:
+                print(f"[setup] Channel {value} not found")
+                return None
+            except Exception as e:
+                print(f"[setup] Unexpected error fetching channel {value}: {e}")
                 return None
         return ch if isinstance(ch, discord.TextChannel) else None
     name = value.lstrip("#")
-    return discord.utils.get(guild.text_channels, name=name)
+    ch = discord.utils.get(guild.text_channels, name=name)
+    print(f"[setup] name lookup '{name}' → {ch}")
+    return ch
 
 
 class Admin(commands.Cog):
