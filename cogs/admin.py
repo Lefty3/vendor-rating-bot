@@ -16,13 +16,18 @@ async def _is_admin(interaction: discord.Interaction) -> bool:
     return False
 
 
-def _resolve_channel(guild: discord.Guild, value: str) -> discord.TextChannel | None:
+async def _resolve_channel(guild: discord.Guild, value: str) -> discord.TextChannel | None:
     """Resolve a channel from a mention, ID, or name string."""
     value = value.strip()
     if value.startswith("<#") and value.endswith(">"):
         value = value[2:-1]
     if value.isdigit():
         ch = guild.get_channel(int(value))
+        if ch is None:
+            try:
+                ch = await guild.fetch_channel(int(value))
+            except (discord.NotFound, discord.Forbidden):
+                return None
         return ch if isinstance(ch, discord.TextChannel) else None
     name = value.lstrip("#")
     return discord.utils.get(guild.text_channels, name=name)
@@ -52,7 +57,7 @@ class Admin(commands.Cog):
             await interaction.response.send_message("Admins only.", ephemeral=True)
             return
 
-        live_ch = _resolve_channel(interaction.guild, live_channel)
+        live_ch = await _resolve_channel(interaction.guild, live_channel)
         if not live_ch:
             await interaction.response.send_message(
                 f"Could not find a text channel matching `{live_channel}`. "
@@ -69,7 +74,7 @@ class Admin(commands.Cog):
         lines = ["✅ Setup complete!", f"• Live embed → {live_ch.mention}"]
 
         if admin_channel:
-            admin_ch = _resolve_channel(interaction.guild, admin_channel)
+            admin_ch = await _resolve_channel(interaction.guild, admin_channel)
             if admin_ch:
                 await db.set_config(interaction.guild_id, "admin_channel_id", str(admin_ch.id))
                 lines.append(f"• Admin channel → {admin_ch.mention}")
