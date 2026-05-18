@@ -16,6 +16,18 @@ async def _is_admin(interaction: discord.Interaction) -> bool:
     return False
 
 
+def _resolve_channel(guild: discord.Guild, value: str) -> discord.TextChannel | None:
+    """Resolve a channel from a mention, ID, or name string."""
+    value = value.strip()
+    if value.startswith("<#") and value.endswith(">"):
+        value = value[2:-1]
+    if value.isdigit():
+        ch = guild.get_channel(int(value))
+        return ch if isinstance(ch, discord.TextChannel) else None
+    name = value.lstrip("#")
+    return discord.utils.get(guild.text_channels, name=name)
+
+
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -25,42 +37,45 @@ class Admin(commands.Cog):
         description="[Admin] Configure the bot for this server",
     )
     @app_commands.describe(
-        live_channel="Channel where the live vendor embed will be posted and pinned",
-        admin_channel="Channel where vendor suggestions are posted for review (optional)",
-        admin_role="Role that can approve/reject vendors in addition to server admins (optional)",
+        live_channel="Type # and select the channel for the live vendor embed",
+        admin_channel="Type # and select the channel for vendor suggestions (optional)",
         cooldown_days="Days a member must wait before rating the same vendor again (default 1)",
     )
     async def setup(
         self,
         interaction: discord.Interaction,
-        live_channel: discord.TextChannel,
-        admin_channel: discord.TextChannel | None = None,
-        admin_role: discord.Role | None = None,
+        live_channel: str,
+        admin_channel: str = "",
         cooldown_days: app_commands.Range[int, 0, 365] = 1,
     ):
         if not await _is_admin(interaction):
             await interaction.response.send_message("Admins only.", ephemeral=True)
             return
 
+        live_ch = _resolve_channel(interaction.guild, live_channel)
+        if not live_ch:
+            await interaction.response.send_message(
+                f"Could not find a text channel matching `{live_channel}`. "
+                "Try typing the channel name exactly, e.g. `vendor-ratings`.",
+                ephemeral=True,
+            )
+            return
+
         db = self.bot.db
-        await db.set_config(interaction.guild_id, "live_channel_id", str(live_channel.id))
-        # Reset message ID so a fresh embed is posted
+        await db.set_config(interaction.guild_id, "live_channel_id", str(live_ch.id))
         await db.set_config(interaction.guild_id, "live_message_id", "")
         await db.set_config(interaction.guild_id, "cooldown_days", str(cooldown_days))
 
-        if admin_channel:
-            await db.set_config(interaction.guild_id, "admin_channel_id", str(admin_channel.id))
-        if admin_role:
-            await db.set_config(interaction.guild_id, "admin_role_id", str(admin_role.id))
+        lines = ["✅ Setup complete!", f"• Live embed → {live_ch.mention}"]
 
-        lines = [
-            f"✅ Setup complete!",
-            f"• Live embed → {live_channel.mention}",
-        ]
         if admin_channel:
-            lines.append(f"• Admin channel → {admin_channel.mention}")
-        if admin_role:
-            lines.append(f"• Admin role → {admin_role.mention}")
+            admin_ch = _resolve_channel(interaction.guild, admin_channel)
+            if admin_ch:
+                await db.set_config(interaction.guild_id, "admin_channel_id", str(admin_ch.id))
+                lines.append(f"• Admin channel → {admin_ch.mention}")
+            else:
+                lines.append(f"• Admin channel → not found (skipped)")
+
         lines.append(f"• Rating cooldown → {cooldown_days} day(s)")
 
         await interaction.response.send_message("\n".join(lines), ephemeral=True)
