@@ -193,6 +193,19 @@ class Database:
                 row = await cur.fetchone()
                 return max(0, row[0]) if row and row[0] else 0
 
+    async def get_vendor_reviews(self, vendor_id: int, guild_id: int) -> list:
+        """Returns all ratings for a vendor, newest first."""
+        async with aiosqlite.connect(self.path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """SELECT id, score, comment, submitted_at
+                   FROM ratings
+                   WHERE vendor_id = ? AND guild_id = ?
+                   ORDER BY submitted_at DESC""",
+                (vendor_id, guild_id),
+            ) as cur:
+                return await cur.fetchall()
+
     async def get_vendor_stats(self, guild_id: int) -> list:
         """Returns (id, name, avg_score, rating_count) for all approved vendors."""
         async with aiosqlite.connect(self.path) as db:

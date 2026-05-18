@@ -112,6 +112,53 @@ class Ratings(commands.Cog):
             if current.lower() in v["name"].lower()
         ][:25]
 
+    @app_commands.command(name="reviews", description="Show all ratings and comments for a vendor")
+    @app_commands.describe(vendor="The vendor to view reviews for")
+    async def reviews(self, interaction: discord.Interaction, vendor: str):
+        db = self.bot.db
+        vendor_row = await db.get_vendor_by_name(vendor, interaction.guild_id)
+
+        if not vendor_row or vendor_row["status"] != "approved":
+            await interaction.response.send_message(
+                f"**{vendor}** is not an approved vendor.", ephemeral=True
+            )
+            return
+
+        ratings = await db.get_vendor_reviews(vendor_row["id"], interaction.guild_id)
+
+        if not ratings:
+            await interaction.response.send_message(
+                f"**{vendor_row['name']}** has no ratings yet.", ephemeral=False
+            )
+            return
+
+        lines = []
+        for r in ratings:
+            score = r["score"]
+            tier = "🟢" if score >= 8 else "🟡" if score >= 4 else "🔴"
+            date = r["submitted_at"][:10]
+            comment = f' — "{r["comment"]}"' if r["comment"] else ""
+            lines.append(f"{tier} **{score}/10**{comment} *(ID: {r['id']} · {date})*")
+
+        embed = discord.Embed(
+            title=f"Reviews for {vendor_row['name']}",
+            description="\n".join(lines),
+            color=discord.Color.blurple(),
+        )
+        embed.set_footer(text=f"{len(ratings)} rating(s) · Admins can remove with /remove_rating <id>")
+        await interaction.response.send_message(embed=embed)
+
+    @reviews.autocomplete("vendor")
+    async def reviews_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        vendors = await self.bot.db.get_approved_vendors(interaction.guild_id)
+        return [
+            app_commands.Choice(name=v["name"], value=v["name"])
+            for v in vendors
+            if current.lower() in v["name"].lower()
+        ][:25]
+
 
 async def setup(bot):
     await bot.add_cog(Ratings(bot))
