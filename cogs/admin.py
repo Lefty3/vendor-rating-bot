@@ -6,7 +6,7 @@ from utils.embeds import build_vendor_list_embed
 
 
 async def _is_admin(interaction: discord.Interaction) -> bool:
-    if interaction.user.guild_permissions.administrator:
+    if interaction.permissions.administrator:
         return True
     role_id = await interaction.client.db.get_config(interaction.guild_id, "admin_role_id")
     if role_id:
