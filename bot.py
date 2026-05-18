@@ -56,8 +56,11 @@ class VendorBot(commands.Bot):
             return
 
         channel = guild.get_channel(int(channel_id))
-        if not channel:
-            return
+        if channel is None:
+            try:
+                channel = await guild.fetch_channel(int(channel_id))
+            except (discord.NotFound, discord.Forbidden):
+                return
 
         stats = await self.db.get_vendor_stats(guild.id)
         embed = build_vendor_list_embed(stats)

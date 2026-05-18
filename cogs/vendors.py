@@ -125,6 +125,11 @@ class Vendors(commands.Cog):
         admin_channel_id = await db.get_config(interaction.guild_id, "admin_channel_id")
         if admin_channel_id:
             channel = interaction.guild.get_channel(int(admin_channel_id))
+            if channel is None:
+                try:
+                    channel = await interaction.guild.fetch_channel(int(admin_channel_id))
+                except (discord.NotFound, discord.Forbidden):
+                    channel = None
             if channel:
                 view = VendorApprovalView(vendor["id"])
                 self.bot.add_view(view)
