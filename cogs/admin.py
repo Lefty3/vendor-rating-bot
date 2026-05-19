@@ -82,16 +82,23 @@ class Admin(commands.Cog):
         await db.set_config(interaction.guild_id, "cooldown_days", str(cooldown_days))
 
         lines = ["✅ Setup complete!", f"• Live embed → {live_ch.mention}"]
+        env_lines = [
+            "**Save these as Railway Variables so settings survive redeploys:**",
+            f"`LIVE_CHANNEL_ID` = `{live_ch.id}`",
+        ]
 
         if admin_channel:
             admin_ch = await _resolve_channel(interaction.guild, admin_channel)
             if admin_ch:
                 await db.set_config(interaction.guild_id, "admin_channel_id", str(admin_ch.id))
                 lines.append(f"• Admin channel → {admin_ch.mention}")
+                env_lines.append(f"`ADMIN_CHANNEL_ID` = `{admin_ch.id}`")
             else:
                 lines.append(f"• Admin channel → not found (skipped)")
 
         lines.append(f"• Rating cooldown → {cooldown_days} day(s)")
+        lines.append("")
+        lines.extend(env_lines)
 
         await interaction.response.send_message("\n".join(lines), ephemeral=True)
         await self.bot.update_live_embed(interaction.guild)

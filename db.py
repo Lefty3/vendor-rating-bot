@@ -1,7 +1,15 @@
 import aiosqlite
-
 import os
+
 DB_PATH = os.environ.get("DB_PATH", "vendor_ratings.db")
+
+# These env vars override DB config so settings survive redeploys
+_ENV_OVERRIDES = {
+    "live_channel_id": "LIVE_CHANNEL_ID",
+    "admin_channel_id": "ADMIN_CHANNEL_ID",
+    "admin_role_id": "ADMIN_ROLE_ID",
+    "cooldown_days": "COOLDOWN_DAYS",
+}
 
 
 class Database:
@@ -57,6 +65,11 @@ class Database:
     # ── Config ────────────────────────────────────────────────────────────────
 
     async def get_config(self, guild_id: int, key: str) -> str | None:
+        env_key = _ENV_OVERRIDES.get(key)
+        if env_key:
+            val = os.environ.get(env_key)
+            if val:
+                return val
         async with aiosqlite.connect(self.path) as db:
             async with db.execute(
                 "SELECT value FROM config WHERE guild_id = ? AND key = ?",
