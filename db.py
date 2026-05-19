@@ -1,6 +1,7 @@
 import aiosqlite
 
-DB_PATH = "vendor_ratings.db"
+import os
+DB_PATH = os.environ.get("DB_PATH", "vendor_ratings.db")
 
 
 class Database:

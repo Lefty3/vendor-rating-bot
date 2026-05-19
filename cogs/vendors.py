@@ -123,18 +123,27 @@ class Vendors(commands.Cog):
 
         # Post approval card to admin channel
         admin_channel_id = await db.get_config(interaction.guild_id, "admin_channel_id")
+        print(f"[suggest] admin_channel_id from config: {admin_channel_id}")
         if admin_channel_id:
             channel = interaction.guild.get_channel(int(admin_channel_id))
             if channel is None:
                 try:
                     channel = await interaction.guild.fetch_channel(int(admin_channel_id))
-                except (discord.NotFound, discord.Forbidden):
+                    print(f"[suggest] fetched channel: {channel}")
+                except discord.Forbidden:
+                    print(f"[suggest] Forbidden — bot can't see channel {admin_channel_id}")
+                    channel = None
+                except discord.NotFound:
+                    print(f"[suggest] Channel {admin_channel_id} not found")
                     channel = None
             if channel:
                 view = VendorApprovalView(vendor["id"])
                 self.bot.add_view(view)
                 embed = build_suggestion_embed(name, interaction.user, vendor["id"])
                 await channel.send(embed=embed, view=view)
+                print(f"[suggest] approval card sent to {channel}")
+        else:
+            print("[suggest] No admin_channel_id configured — run /setup again")
 
     # Slash command fallbacks for admins who prefer typing
     @app_commands.command(name="approve", description="[Admin] Approve a pending vendor suggestion")
