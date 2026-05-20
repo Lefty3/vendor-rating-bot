@@ -136,6 +136,13 @@ class Database:
             ) as cur:
                 return await cur.fetchall()
 
+    async def delete_vendor(self, vendor_id: int, guild_id: int):
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "DELETE FROM vendors WHERE id = ? AND guild_id = ?", (vendor_id, guild_id)
+            )
+            await db.commit()
+
     async def update_vendor_status(self, vendor_id: int, status: str, admin_id: int):
         async with aiosqlite.connect(self.path) as db:
             await db.execute(

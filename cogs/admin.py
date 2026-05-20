@@ -139,6 +139,42 @@ class Admin(commands.Cog):
         await self.bot.update_live_embed(interaction.guild)
 
     @app_commands.command(
+        name="remove_vendor",
+        description="[Admin] Permanently remove an approved vendor and all its ratings",
+    )
+    @app_commands.describe(name="Name of the approved vendor to remove")
+    async def remove_vendor(self, interaction: discord.Interaction, name: str):
+        if not await _is_admin(interaction):
+            await interaction.response.send_message("Admins only.", ephemeral=True)
+            return
+
+        db = self.bot.db
+        vendor = await db.get_vendor_by_name(name, interaction.guild_id)
+        if not vendor or vendor["status"] != "approved":
+            await interaction.response.send_message(
+                f"No approved vendor named **{name}** found.", ephemeral=True
+            )
+            return
+
+        await db.delete_vendor(vendor["id"], interaction.guild_id)
+        await interaction.response.send_message(
+            f"🗑️ **{vendor['name']}** has been removed from the vendor list.",
+            ephemeral=True,
+        )
+        await self.bot.update_live_embed(interaction.guild)
+
+    @remove_vendor.autocomplete("name")
+    async def remove_vendor_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        approved = await self.bot.db.get_approved_vendors(interaction.guild_id)
+        return [
+            app_commands.Choice(name=v["name"], value=v["name"])
+            for v in approved
+            if current.lower() in v["name"].lower()
+        ][:25]
+
+    @app_commands.command(
         name="refresh",
         description="[Admin] Force-refresh the pinned vendor embed",
     )
