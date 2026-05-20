@@ -175,6 +175,74 @@ class Admin(commands.Cog):
         ][:25]
 
     @app_commands.command(
+        name="rename_vendor",
+        description="[Admin] Rename a vendor; merges into target if the new name already exists",
+    )
+    @app_commands.describe(
+        old_name="Current vendor name",
+        new_name="New display name for the vendor",
+    )
+    async def rename_vendor(
+        self, interaction: discord.Interaction, old_name: str, new_name: str
+    ):
+        if not await _is_admin(interaction):
+            await interaction.response.send_message("Admins only.", ephemeral=True)
+            return
+
+        new_name = new_name.strip()
+        if len(new_name) < 2:
+            await interaction.response.send_message(
+                "New name must be at least 2 characters.", ephemeral=True
+            )
+            return
+
+        db = self.bot.db
+        source = await db.get_vendor_by_name(old_name, interaction.guild_id)
+        if not source:
+            await interaction.response.send_message(
+                f"No vendor named **{old_name}** found.", ephemeral=True
+            )
+            return
+
+        new_lower = new_name.lower()
+
+        # Case-only change on the same vendor — just update display name.
+        if new_lower == source["name_lower"]:
+            await db.rename_vendor(source["id"], new_name, update_name_lower=False)
+            await interaction.response.send_message(
+                f"✏️ Display name updated to **{new_name}**.", ephemeral=True
+            )
+            await self.bot.update_live_embed(interaction.guild)
+            return
+
+        target = await db.get_vendor_by_name(new_name, interaction.guild_id)
+        if target and target["id"] != source["id"]:
+            await db.merge_vendors(source["id"], target["id"])
+            await interaction.response.send_message(
+                f"🔀 Merged **{source['name']}** into existing **{target['name']}** "
+                "(ratings transferred).",
+                ephemeral=True,
+            )
+        else:
+            await db.rename_vendor(source["id"], new_name, update_name_lower=True)
+            await interaction.response.send_message(
+                f"✏️ **{source['name']}** renamed to **{new_name}**.", ephemeral=True
+            )
+
+        await self.bot.update_live_embed(interaction.guild)
+
+    @rename_vendor.autocomplete("old_name")
+    async def rename_vendor_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        approved = await self.bot.db.get_approved_vendors(interaction.guild_id)
+        return [
+            app_commands.Choice(name=v["name"], value=v["name"])
+            for v in approved
+            if current.lower() in v["name"].lower()
+        ][:25]
+
+    @app_commands.command(
         name="refresh",
         description="[Admin] Force-refresh the pinned vendor embed",
     )

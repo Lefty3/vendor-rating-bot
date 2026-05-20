@@ -136,6 +136,36 @@ class Database:
             ) as cur:
                 return await cur.fetchall()
 
+    async def rename_vendor(self, vendor_id: int, new_name: str, update_name_lower: bool):
+        new_name = new_name.strip()
+        async with aiosqlite.connect(self.path) as db:
+            if update_name_lower:
+                await db.execute(
+                    "UPDATE vendors SET name = ?, name_lower = ? WHERE id = ?",
+                    (new_name, new_name.lower(), vendor_id),
+                )
+            else:
+                await db.execute(
+                    "UPDATE vendors SET name = ? WHERE id = ?", (new_name, vendor_id)
+                )
+            await db.commit()
+
+    async def merge_vendors(self, source_id: int, target_id: int):
+        """Move ratings & cooldowns from source onto target, then delete source."""
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "UPDATE ratings SET vendor_id = ? WHERE vendor_id = ?",
+                (target_id, source_id),
+            )
+            await db.execute(
+                """INSERT OR IGNORE INTO cooldowns (user_id, vendor_id, last_rating)
+                   SELECT user_id, ?, last_rating FROM cooldowns WHERE vendor_id = ?""",
+                (target_id, source_id),
+            )
+            await db.execute("DELETE FROM cooldowns WHERE vendor_id = ?", (source_id,))
+            await db.execute("DELETE FROM vendors WHERE id = ?", (source_id,))
+            await db.commit()
+
     async def delete_vendor(self, vendor_id: int, guild_id: int):
         async with aiosqlite.connect(self.path) as db:
             await db.execute(
