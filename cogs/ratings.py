@@ -140,9 +140,26 @@ class Ratings(commands.Cog):
             comment = f' — "{r["comment"]}"' if r["comment"] else ""
             lines.append(f"{tier} **{score}/10**{comment} *(ID: {r['id']} · {date})*")
 
+        # Discord embed description limit is 4096 chars. Fit as many reviews as
+        # possible and append a "… and N more" notice if some are cut off.
+        LIMIT = 4000  # leave headroom for the overflow notice
+        kept, overflow = [], 0
+        running = 0
+        for line in lines:
+            cost = len(line) + 1  # +1 for the newline
+            if running + cost > LIMIT:
+                overflow += 1
+            else:
+                kept.append(line)
+                running += cost
+
+        description = "\n".join(kept)
+        if overflow:
+            description += f"\n*… and {overflow} more review(s) not shown.*"
+
         embed = discord.Embed(
             title=f"Reviews for {vendor_row['name']}",
-            description="\n".join(lines),
+            description=description,
             color=discord.Color.blurple(),
         )
         embed.set_footer(text=f"{len(ratings)} rating(s) · Admins can remove with /remove_rating <id>")
