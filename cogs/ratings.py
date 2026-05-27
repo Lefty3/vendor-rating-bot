@@ -12,10 +12,11 @@ class RatingModal(discord.ui.Modal, title="Rate a Vendor"):
         required=True,
     )
     comment_input = discord.ui.TextInput(
-        label="Comment (optional)",
-        placeholder="Share your experience — this is anonymous...",
+        label="Comment (30 char minimum)",
+        placeholder="Share your experience — this is anonymous. At least 30 characters required.",
         style=discord.TextStyle.paragraph,
-        required=False,
+        required=True,
+        min_length=30,
         max_length=500,
     )
 
@@ -35,7 +36,14 @@ class RatingModal(discord.ui.Modal, title="Rate a Vendor"):
             )
             return
 
-        comment = self.comment_input.value.strip() or None
+        comment = self.comment_input.value.strip()
+        if len(comment) < 30:
+            await interaction.response.send_message(
+                f"Your comment must be at least 30 characters (you submitted {len(comment)}). "
+                "Please share a bit more detail about your experience.",
+                ephemeral=True,
+            )
+            return
         db = interaction.client.db
 
         cooldown_days = int(await db.get_config(interaction.guild_id, "cooldown_days") or 1)
@@ -70,7 +78,7 @@ class RatingModal(discord.ui.Modal, title="Rate a Vendor"):
 
         await interaction.response.send_message(
             f"{tier}\nYour anonymous rating of **{score}/10** for **{self.vendor_name}** has been recorded.\n"
-            + (f'> "{comment}"' if comment else ""),
+            f'> "{comment}"',
             ephemeral=True,
         )
 
