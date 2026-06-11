@@ -1,6 +1,9 @@
 import discord
 from datetime import datetime, timezone
 
+# Vendors need at least this many ratings before they are tier-classified.
+MIN_RATINGS_FOR_TIER = 3
+
 
 def tier_info(score: float) -> tuple[str, str]:
     if score >= 8:
@@ -35,6 +38,7 @@ def build_vendor_list_embed(vendor_stats: list) -> discord.Embed:
         "approved": [],
         "caution": [],
         "do_not_use": [],
+        "gathering": [],
         "unrated": [],
     }
 
@@ -45,6 +49,8 @@ def build_vendor_list_embed(vendor_stats: list) -> discord.Embed:
 
         if count == 0:
             buckets["unrated"].append((name, avg, count))
+        elif count < MIN_RATINGS_FOR_TIER:
+            buckets["gathering"].append((name, avg, count))
         elif avg >= 8:
             buckets["approved"].append((name, avg, count))
         elif avg >= 4:
@@ -69,6 +75,20 @@ def build_vendor_list_embed(vendor_stats: list) -> discord.Embed:
     for title, rows in sections:
         if rows:
             embed.add_field(name=title, value=fmt_rows(rows), inline=False)
+
+    if buckets["gathering"]:
+        # No average shown on purpose — these vendors aren't classified yet.
+        value = "\n".join(
+            f"**{name}** — {count}/{MIN_RATINGS_FOR_TIER} ratings"
+            for name, _, count in sorted(
+                buckets["gathering"], key=lambda x: (-x[2], x[0].lower())
+            )
+        )
+        embed.add_field(
+            name=f"🔵 GATHERING REVIEWS  ·  rated after {MIN_RATINGS_FOR_TIER}+",
+            value=value,
+            inline=False,
+        )
 
     if buckets["unrated"]:
         value = "\n".join(f"**{name}**" for name, _, _ in buckets["unrated"])
